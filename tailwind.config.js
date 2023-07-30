@@ -12,6 +12,10 @@ module.exports = {
         'gradient-conic':
           'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
       },
+      cursor: {
+        pen: 'url(/brush.svg) 2 22, auto',
+        eraser: 'url(/eraser.svg) 12 12, auto',
+      },
     },
   },
   plugins: [],

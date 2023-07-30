@@ -15,6 +15,6 @@ export const env = createEnv({
    * Often `process.env` or `import.meta.env`
    */
   runtimeEnv: {
-    NEXT_PUBLIC_WSS_URL: process.env.NEXT_PUBLIC_PUBLISHABLE_KEY,
+    NEXT_PUBLIC_WSS_URL: process.env.NEXT_PUBLIC_WSS_URL,
   },
 })

@@ -5,19 +5,21 @@ import type { Socket } from 'socket.io-client'
 
 import type { ClientToServerEvents } from '@/libs/wss/events/client-to-server'
 import type { ServerToClientEvents } from '@/libs/wss/events/server-to-client'
+import { cn } from '@/utils'
 import { env } from '@/env.mjs'
 
 let socket: Socket<ServerToClientEvents, ClientToServerEvents>
 
 async function getSocketConnection() {
-  socket = io(env.NEXT_PUBLIC_WSS_URL) // KEEP AS IS
+  socket = io(env.NEXT_PUBLIC_WSS_URL)
 }
 
 function PainCanvas() {
   const userIdRef = useRef<string>(Math.random().toString())
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const contextRef = useRef<CanvasRenderingContext2D | null>(null)
-  const [isDrawing, setIsDrawing] = useState(false)
+  const [isDrawing, setIsDrawing] = useState<boolean>(false)
+  const [isErasing, setIsErasing] = useState<boolean>(false)
 
   const getCurrentCanvasData = () => {
     const canvas = canvasRef.current
@@ -70,9 +72,20 @@ function PainCanvas() {
 
   const startDrawing = ({ nativeEvent }: { nativeEvent: MouseEvent }) => {
     const { offsetX, offsetY } = nativeEvent
-    contextRef.current?.beginPath()
-    contextRef.current?.moveTo(offsetX, offsetY)
+    const context = contextRef.current
+    if (!context) return
+    context.beginPath()
+    context.moveTo(offsetX, offsetY)
+
     setIsDrawing(true)
+
+    if (isErasing) {
+      context.globalCompositeOperation = 'destination-out'
+      context.lineWidth = 30
+    } else {
+      context.globalCompositeOperation = 'source-over'
+      context.lineWidth = 5
+    }
   }
 
   const finishDrawing = () => {
@@ -108,7 +121,7 @@ function PainCanvas() {
   }
 
   return (
-    <div className="relative">
+    <div className={cn('relative', isErasing ? 'cursor-eraser' : 'cursor-pen')}>
       <canvas
         onMouseDown={startDrawing}
         onMouseUp={finishDrawing}
@@ -128,6 +141,16 @@ function PainCanvas() {
           onClick={loadDrawingFromStorage}
         >
           LOAD !!
+        </button>
+      </div>
+      <div className="flex absolute top-5 left-5">
+        <button
+          className="text-lg font-bold p-5 ring-2 ring-pink-500 rounded-lg bg-white"
+          onClick={() => {
+            setIsErasing((prev) => !prev)
+          }}
+        >
+          {isErasing ? 'SET To PEN' : 'SET To ERASER'}
         </button>
       </div>
     </div>
