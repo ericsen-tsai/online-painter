@@ -65,6 +65,14 @@ function PainCanvas() {
       socket.on('connect', () => {
         socket.on('CanvasResponse', async (payload) => {
           const { dataURL } = payload
+          if (!dataURL) {
+            const canvas = canvasRef.current
+            const context = contextRef.current
+            if (canvas && context) {
+              context.clearRect(0, 0, canvas.width, canvas.height)
+              return
+            }
+          }
           loadCanvasData(dataURL, canvasRef.current)
         })
         socket.emit('CanvasJoin', {
