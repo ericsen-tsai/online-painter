@@ -10,6 +10,7 @@ import type { ClientToServerEvents } from '@/libs/wss/events/client-to-server'
 import type { ServerToClientEvents } from '@/libs/wss/events/server-to-client'
 import { cn } from '@/utils'
 import { env } from '@/env.mjs'
+import LineWidthSelector from './LineWidthSelector'
 
 let socket: Socket<ServerToClientEvents, ClientToServerEvents>
 
@@ -33,6 +34,7 @@ const loadCanvasData = (data: string, ele: HTMLCanvasElement | null) => {
 }
 
 const DEFAULT_COLOR = '#000000'
+const DEFAULT_LINE_WIDTH = 5
 
 function PainCanvas() {
   const userIdRef = useRef<string>(uuid())
@@ -41,6 +43,7 @@ function PainCanvas() {
   const [isDrawing, setIsDrawing] = useState<boolean>(false)
   const [isErasing, setIsErasing] = useState<boolean>(false)
   const [color, setColor] = useState<string>(DEFAULT_COLOR)
+  const [lineWidth, setLineWidth] = useState<number>(DEFAULT_LINE_WIDTH)
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -53,7 +56,7 @@ function PainCanvas() {
     context.scale(1, 1)
     context.lineCap = 'round'
     context.strokeStyle = DEFAULT_COLOR
-    context.lineWidth = 5
+    context.lineWidth = DEFAULT_LINE_WIDTH
     contextRef.current = context
   }, [])
 
@@ -89,7 +92,7 @@ function PainCanvas() {
       context.lineWidth = 30
     } else {
       context.globalCompositeOperation = 'source-over'
-      context.lineWidth = 5
+      context.lineWidth = lineWidth
     }
   }
 
@@ -152,14 +155,27 @@ function PainCanvas() {
           LOAD !!
         </button>
       </div> */}
-      <div className="flex absolute top-5 left-5">
+      <div className="flex absolute top-5 left-5 gap-3">
         <button
-          className="text-lg font-bold p-5 ring-2 ring-pink-500 rounded-lg bg-white"
+          className="text-lg font-bold p-5 ring-2 ring-pink-500 rounded-lg bg-white w-28"
           onClick={() => {
             setIsErasing((prev) => !prev)
           }}
         >
-          {isErasing ? 'set to pen' : 'set to eraser'}
+          {isErasing ? 'pen' : 'eraser'}
+        </button>
+        <button
+          className="text-lg font-bold p-5 ring-2 ring-pink-500 rounded-lg bg-white w-28"
+          onClick={() => {
+            const canvas = canvasRef.current
+            const context = contextRef.current
+            if (canvas && context) {
+              context.clearRect(0, 0, canvas.width, canvas.height)
+              throttledEmitCanvas('')
+            }
+          }}
+        >
+          clear
         </button>
       </div>
       <TwitterPicker
@@ -182,9 +198,20 @@ function PainCanvas() {
           const context = canvas?.getContext('2d')
           if (context) context.strokeStyle = c.hex
           setColor(c.hex)
+          setIsErasing(false)
         }}
         triangle="hide"
         width="50%"
+      />
+      <LineWidthSelector
+        width={lineWidth}
+        onChange={(w) => {
+          const canvas = canvasRef.current
+          const context = canvas?.getContext('2d')
+          if (context) context.lineWidth = w
+          setLineWidth(w)
+        }}
+        className="absolute bottom-5 right-5"
       />
     </div>
   )
