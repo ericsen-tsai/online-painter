@@ -96,11 +96,13 @@ function PainCanvas() {
     setIsDrawing(true)
 
     if (isErasing) {
-      context.globalCompositeOperation = 'destination-out'
+      // context.globalCompositeOperation = 'destination-out'
       context.lineWidth = 30
+      context.strokeStyle = '#FFFFFF'
     } else {
-      context.globalCompositeOperation = 'source-over'
+      // context.globalCompositeOperation = 'source-over'
       context.lineWidth = lineWidth
+      context.strokeStyle = color
     }
   }
 
