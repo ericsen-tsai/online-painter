@@ -2,6 +2,9 @@
 import { useRef, useState, useEffect } from 'react'
 import { io } from 'socket.io-client'
 import type { Socket } from 'socket.io-client'
+import throttle from 'lodash.throttle'
+import { v4 as uuid } from 'uuid'
+import { TwitterPicker } from 'react-color'
 
 import type { ClientToServerEvents } from '@/libs/wss/events/client-to-server'
 import type { ServerToClientEvents } from '@/libs/wss/events/server-to-client'
@@ -14,40 +17,42 @@ async function getSocketConnection() {
   socket = io(env.NEXT_PUBLIC_WSS_URL)
 }
 
+const getCanvasData = (ele: HTMLCanvasElement | null) => {
+  if (!ele) return
+  const data = ele.toDataURL()
+  return data
+}
+
+const loadCanvasData = (data: string, ele: HTMLCanvasElement | null) => {
+  const img = new Image()
+  img.onload = () => {
+    const context = ele?.getContext('2d')
+    context?.drawImage(img, 0, 0)
+  }
+  img.src = data
+}
+
+const DEFAULT_COLOR = '#000000'
+
 function PainCanvas() {
-  const userIdRef = useRef<string>(Math.random().toString())
+  const userIdRef = useRef<string>(uuid())
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const contextRef = useRef<CanvasRenderingContext2D | null>(null)
   const [isDrawing, setIsDrawing] = useState<boolean>(false)
   const [isErasing, setIsErasing] = useState<boolean>(false)
-
-  const getCurrentCanvasData = () => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const data = canvas.toDataURL()
-    return data
-  }
-
-  const loadCanvasData = (data: string) => {
-    const img = new Image()
-    img.onload = () => {
-      const context = canvasRef.current?.getContext('2d')
-      context?.drawImage(img, 0, 0)
-    }
-    img.src = data
-  }
+  const [color, setColor] = useState<string>(DEFAULT_COLOR)
 
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    canvas.width = 600
-    canvas.height = 600
+    canvas.width = 800
+    canvas.height = 800
 
     const context = canvas.getContext('2d')
     if (!context) return
     context.scale(1, 1)
     context.lineCap = 'round'
-    context.strokeStyle = 'black'
+    context.strokeStyle = DEFAULT_COLOR
     context.lineWidth = 5
     contextRef.current = context
   }, [])
@@ -57,7 +62,7 @@ function PainCanvas() {
       socket.on('connect', () => {
         socket.on('CanvasResponse', async (payload) => {
           const { dataURL } = payload
-          loadCanvasData(dataURL)
+          loadCanvasData(dataURL, canvasRef.current)
         })
         socket.emit('CanvasJoin', {
           userId: userIdRef.current,
@@ -93,6 +98,10 @@ function PainCanvas() {
     setIsDrawing(false)
   }
 
+  const throttledEmitCanvas = throttle((data: string) => {
+    socket.emit('CanvasUpdate', { dataURL: data, userId: userIdRef.current })
+  }, 50)
+
   const draw = ({ nativeEvent }: { nativeEvent: MouseEvent }) => {
     if (!isDrawing) {
       return
@@ -101,24 +110,24 @@ function PainCanvas() {
     contextRef.current?.lineTo(offsetX, offsetY)
     contextRef.current?.stroke()
 
-    const data = getCurrentCanvasData()
+    const data = getCanvasData(canvasRef.current)
     if (data) {
-      socket.emit('CanvasUpdate', { dataURL: data, userId: userIdRef.current })
+      throttledEmitCanvas(data)
     }
   }
 
-  const saveDrawingToStorage = () => {
-    const data = getCurrentCanvasData()
-    if (data) {
-      localStorage.setItem('drawing', data)
-    }
-  }
+  // const saveDrawingToStorage = () => {
+  //   const data = getCanvasData(canvasRef.current)
+  //   if (data) {
+  //     localStorage.setItem('drawing', data)
+  //   }
+  // }
 
-  const loadDrawingFromStorage = () => {
-    const data = localStorage.getItem('drawing')
-    if (!data) return
-    loadCanvasData(data)
-  }
+  // const loadDrawingFromStorage = () => {
+  //   const data = localStorage.getItem('drawing')
+  //   if (!data) return
+  //   loadCanvasData(data, canvasRef.current)
+  // }
 
   return (
     <div className={cn('relative', isErasing ? 'cursor-eraser' : 'cursor-pen')}>
@@ -127,9 +136,9 @@ function PainCanvas() {
         onMouseUp={finishDrawing}
         onMouseMove={draw}
         ref={canvasRef}
-        className="ring-4 ring-black h-[600px] w-[600px]"
+        className="ring-4 ring-black h-[800px] w-[800px]"
       />
-      <div className="flex gap-5 absolute top-5 right-5">
+      {/* <div className="flex gap-5 absolute top-5 right-5">
         <button
           className="text-lg font-bold p-5 ring-2 ring-pink-500 rounded-lg bg-white"
           onClick={saveDrawingToStorage}
@@ -142,7 +151,7 @@ function PainCanvas() {
         >
           LOAD !!
         </button>
-      </div>
+      </div> */}
       <div className="flex absolute top-5 left-5">
         <button
           className="text-lg font-bold p-5 ring-2 ring-pink-500 rounded-lg bg-white"
@@ -150,9 +159,33 @@ function PainCanvas() {
             setIsErasing((prev) => !prev)
           }}
         >
-          {isErasing ? 'SET To PEN' : 'SET To ERASER'}
+          {isErasing ? 'set to pen' : 'set to eraser'}
         </button>
       </div>
+      <TwitterPicker
+        className="top-5 right-5 !ring-pink-500 !ring-2 !absolute !cursor-default"
+        color={color}
+        colors={[
+          '#FF6900',
+          '#FCB900',
+          '#7BDCB5',
+          '#00D084',
+          '#8ED1FC',
+          '#0693E3',
+          '#ABB8C3',
+          '#EB144C',
+          '#F78DA7',
+          '#000000',
+        ]}
+        onChangeComplete={(c) => {
+          const canvas = canvasRef.current
+          const context = canvas?.getContext('2d')
+          if (context) context.strokeStyle = c.hex
+          setColor(c.hex)
+        }}
+        triangle="hide"
+        width="50%"
+      />
     </div>
   )
 }
